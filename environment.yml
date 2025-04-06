@@ -1,0 +1,8 @@
+name: streamlit-private-app
+dependencies:
+  - python=3.9
+  - streamlit
+  - pandas
+  - matplotlib
+  - seaborn
+  - plotly
