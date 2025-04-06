@@ -29,7 +29,7 @@ check_password()
 @st.cache_data
 def load_data():
 	file_id = st.secrets["gdrive"]["file_id"]
-	url = f"https://drive.google.com/file/d/{file_id}"
+	url = f"https://drive.google.com/uc?export=download&id={file_id}"
 	df = pd.read_csv(url)
 	return df
 
