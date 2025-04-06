@@ -6,14 +6,18 @@ import seaborn as sns
 # --- PASSWORD PROTECTION ---
 def check_password():
     def password_entered():
-        if st.session_state["password"] == "SaC_proJect_April2025!":
+        # Compare entered password with secret
+        if st.session_state["password"] == st.secrets["auth"]["password"]:
             st.session_state["auth_passed"] = True
         else:
             st.session_state["auth_passed"] = False
 
+    # First-time password entry
     if "auth_passed" not in st.session_state:
         st.text_input("Enter password", type="password", on_change=password_entered, key="password")
         st.stop()
+
+    # If password is incorrect
     elif not st.session_state["auth_passed"]:
         st.text_input("Enter password", type="password", on_change=password_entered, key="password")
         st.error("Incorrect password")
