@@ -13,7 +13,7 @@ def check_password():
             st.session_state["auth_passed"] = False
 
     if "auth_passed" not in st.session_state:
-        st.text_input("Enter password", type="password", on_change=password_entered, key="password")
+        st.text_input("Enter password and press Enter", type="password", on_change=password_entered, key="password")
         st.stop()
     elif not st.session_state["auth_passed"]:
         st.text_input("Enter password", type="password", on_change=password_entered, key="password")
@@ -112,7 +112,7 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None):
     return plots
 
 # --- USER INTERFACE ---
-st.title("📊 Private Organization Metrics Dashboard")
+st.title("📊 Shelter Metrics Dashboard")
 
 # Organization selection
 selection_mode = st.radio("Choose organization selection method:", ["By Name", "By ID"])
