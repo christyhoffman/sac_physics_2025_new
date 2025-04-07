@@ -2,22 +2,19 @@ import streamlit as st
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
+import urllib.error
 
 # --- PASSWORD PROTECTION ---
 def check_password():
     def password_entered():
-        # Compare entered password with secret
         if st.session_state["password"] == st.secrets["auth"]["password"]:
             st.session_state["auth_passed"] = True
         else:
             st.session_state["auth_passed"] = False
 
-    # First-time password entry
     if "auth_passed" not in st.session_state:
         st.text_input("Enter password", type="password", on_change=password_entered, key="password")
         st.stop()
-
-    # If password is incorrect
     elif not st.session_state["auth_passed"]:
         st.text_input("Enter password", type="password", on_change=password_entered, key="password")
         st.error("Incorrect password")
@@ -28,10 +25,17 @@ check_password()
 # --- LOAD DATA ---
 @st.cache_data
 def load_data():
-	file_id = st.secrets["gdrive"]["file_id"]
-	url = f"https://drive.google.com/uc?export=download&id={file_id}"
-	df = pd.read_csv(url)
-	return df
+    file_id = st.secrets["gdrive"]["file_id"]
+    url = f"https://drive.google.com/uc?export=download&id={file_id}"
+    try:
+        df = pd.read_csv(url)
+        return df
+    except urllib.error.HTTPError as e:
+        st.error("Could not load CSV file. Make sure it's shared publicly.")
+        st.stop()
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {e}")
+        st.stop()
 
 df = load_data()
 
@@ -60,7 +64,6 @@ ordered_labels = [
 # --- PLOT FUNCTION ---
 def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None):
     sns.set(style='whitegrid')
-
     org_data = df[df['organization_name'] == org_name].copy()
 
     if org_data.empty:
@@ -75,22 +78,21 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None):
 
     for metric in metrics:
         if metric not in org_data.columns:
+            st.warning(f"Metric {metric} not found in data.")
             continue
+
         fig, ax = plt.subplots(figsize=(12, 5))
-        is_rate = metric not in count_metrics
 
-        y_vals = org_data[metric] * 100 if is_rate and metric != 'LAggreg' else org_data[metric]
+        # Check if it's a rate-based metric
+        is_rate = not any(metric.startswith(m) for m in count_metrics)
 
-        display_name = metric_label_map.get(metric, metric)
+        y_vals = org_data[metric] * 100 if is_rate and not metric.startswith('LAggreg') else org_data[metric]
+
+        base_metric = metric.replace('_interpolated', '')
+        display_name = metric_label_map.get(base_metric, metric)
         plot_title = title or f"{display_name} Over Time for {org_name}"
 
-        # ✅ Set correct Y-axis label
-        if metric == 'LAggreg':
-            y_label = "Days"
-        elif is_rate:
-            y_label = "Percentage"
-        else:
-            y_label = "Count"
+        y_label = "Days" if base_metric == 'LAggreg' else "Percentage" if is_rate else "Count"
 
         ax.plot(org_data['yyyymmdd'], y_vals, marker='o', linewidth=2, color=sns.color_palette("Set2", 1)[0])
         ax.set_title(plot_title, fontsize=15, pad=15)
@@ -98,7 +100,7 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None):
         ax.set_ylabel(y_label, fontsize=12)
         ax.set_ylim(bottom=0)
 
-        if is_rate and metric != 'LAggreg':
+        if is_rate and base_metric != 'LAggreg':
             ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.2f}%'))
 
         ax.grid(True, linestyle='--', alpha=0.7)
@@ -106,14 +108,14 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None):
         ax.legend([display_name])
         plt.tight_layout()
         plots.append(fig)
+
     return plots
 
 # --- USER INTERFACE ---
 st.title("📊 Private Organization Metrics Dashboard")
 
-# Input method
+# Organization selection
 selection_mode = st.radio("Choose organization selection method:", ["By Name", "By ID"])
-
 org_name = None
 
 if selection_mode == "By Name":
@@ -144,9 +146,18 @@ selected_labels = st.multiselect(
     ordered_labels,
     default=['Average Daily Inventory']
 )
-selected_metrics = [label_to_metric[label] for label in selected_labels]
 
-# Plotting
+# Use interpolated toggle
+use_interpolated = st.checkbox("Use interpolated values")
+
+# Map labels to the correct column names
+selected_metrics = []
+for label in selected_labels:
+    metric_base = label_to_metric[label]
+    metric_name = f"{metric_base}_interpolated" if use_interpolated else metric_base
+    selected_metrics.append(metric_name)
+
+# Plot button
 if org_name and st.button("Show Plot"):
     plots = plot_organization_metrics(df, org_name, metrics=selected_metrics)
     for fig in plots:
