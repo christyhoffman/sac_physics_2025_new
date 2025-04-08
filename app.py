@@ -30,7 +30,7 @@ def load_data():
     try:
         df = pd.read_csv(url)
         return df
-    except urllib.error.HTTPError as e:
+    except urllib.error.HTTPError:
         st.error("Could not load CSV file. Make sure it's shared publicly.")
         st.stop()
     except Exception as e:
@@ -88,18 +88,15 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None, data
 
         y_vals = org_data[metric] * 100 if is_rate and not metric.startswith('LAggreg') else org_data[metric]
 
-        base_metric = metric.replace('_interpolated', '')
+        base_metric = metric.replace('_interpolated', '').replace('_zeros_replaced', '')
         display_name = metric_label_map.get(base_metric, metric)
-        
 
-	variant_suffix = {
+        variant_suffix = {
             "Interpolated": " (Interpolated)",
             "Zeros Replaced": " (Zeros Replaced)",
             "Raw": ""
         }
-
         plot_title = title or f"{display_name}{variant_suffix[data_variant]} Over Time for {org_name}"
-
 
         y_label = "Days" if base_metric == 'LAggreg' else "Percentage" if is_rate else "Count"
 
