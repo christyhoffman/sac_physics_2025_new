@@ -83,10 +83,15 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None, data
 
         fig, ax = plt.subplots(figsize=(12, 5))
 
-        # Check if it's a rate-based metric
+        # Determine if this is a rate metric
         is_rate = not any(metric.startswith(m) for m in count_metrics)
 
-        y_vals = org_data[metric] * 100 if is_rate and not metric.startswith('LAggreg') else org_data[metric]
+        # Cap percentage values at 100
+        if is_rate and not metric.startswith('LAggreg'):
+            y_vals = org_data[metric] * 100
+            y_vals = y_vals.clip(upper=100)
+        else:
+            y_vals = org_data[metric]
 
         base_metric = metric.replace('_interpolated', '').replace('_zeros_replaced', '')
         display_name = metric_label_map.get(base_metric, metric)
