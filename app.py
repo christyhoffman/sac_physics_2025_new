@@ -62,7 +62,7 @@ ordered_labels = [
 ]
 
 # --- PLOT FUNCTION ---
-def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None):
+def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None, data_variant="Raw"):
     sns.set(style='whitegrid')
     org_data = df[df['organization_name'] == org_name].copy()
 
@@ -90,7 +90,16 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None):
 
         base_metric = metric.replace('_interpolated', '')
         display_name = metric_label_map.get(base_metric, metric)
-        plot_title = title or f"{display_name} Over Time for {org_name}"
+        
+
+	variant_suffix = {
+            "Interpolated": " (Interpolated)",
+            "Zeros Replaced": " (Zeros Replaced)",
+            "Raw": ""
+        }
+
+        plot_title = title or f"{display_name}{variant_suffix[data_variant]} Over Time for {org_name}"
+
 
         y_label = "Days" if base_metric == 'LAggreg' else "Percentage" if is_rate else "Count"
 
@@ -147,18 +156,23 @@ selected_labels = st.multiselect(
     default=['Average Daily Inventory']
 )
 
-# Use interpolated toggle
-use_interpolated = st.checkbox("Use interpolated values")
+# Choose data variant
+data_variant = st.selectbox("Choose data version", ["Raw", "Interpolated", "Zeros Replaced"])
 
-# Map labels to the correct column names
+# Map labels to the correct column names based on the variant
 selected_metrics = []
 for label in selected_labels:
     metric_base = label_to_metric[label]
-    metric_name = f"{metric_base}_interpolated" if use_interpolated else metric_base
+    if data_variant == "Interpolated":
+        metric_name = f"{metric_base}_interpolated"
+    elif data_variant == "Zeros Replaced":
+        metric_name = f"{metric_base}_zeros_replaced"
+    else:
+        metric_name = metric_base
     selected_metrics.append(metric_name)
 
 # Plot button
 if org_name and st.button("Show Plot"):
-    plots = plot_organization_metrics(df, org_name, metrics=selected_metrics)
+    plots = plot_organization_metrics(df, org_name, metrics=selected_metrics, data_variant=data_variant)
     for fig in plots:
         st.pyplot(fig)
