@@ -104,10 +104,12 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None, data
         ax.set_title(plot_title, fontsize=15, pad=15)
         ax.set_xlabel("Date", fontsize=12)
         ax.set_ylabel(y_label, fontsize=12)
-        ax.set_ylim(bottom=0)
 
         if is_rate and base_metric != 'LAggreg':
+            ax.set_ylim(0, 100)
             ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.2f}%'))
+        else:
+            ax.set_ylim(bottom=0)
 
         ax.grid(True, linestyle='--', alpha=0.7)
         ax.tick_params(axis='x', rotation=45)
