@@ -140,7 +140,7 @@ def plot_organization_metrics_plotly(df, org_name, metrics=['PAdopt_monthly'], t
     
         plots.append(fig)
     
-        return plots
+    return plots
     
 # --- USER INTERFACE ---
 st.title("📊 Shelter Metrics Dashboard")
