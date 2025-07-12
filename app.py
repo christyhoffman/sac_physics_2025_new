@@ -54,9 +54,9 @@ label_to_metric = {v: k for k, v in metric_label_map.items()}
 ordered_labels = [
     'Average Daily Inventory',
     'Daily Intake',
-    'Percent Adopted',
-    'Percent Transferred',
-    'Percent Nonlive Outcomes',
+    'Monthly Probability of Adoption',
+    'Monthly Probability of Transfer',
+    'Monthly Probability of Nonlive Outcome',
     'Length of Stay',
     'Save Rate'
 ]
