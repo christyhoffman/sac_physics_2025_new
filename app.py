@@ -74,46 +74,73 @@ def plot_organization_metrics_plotly(df, org_name, metrics=['PAdopt_monthly'], t
     plots = []
     count_metrics = {'DIntake', 'CInventAvg', 'LAggreg'}
 
-    for metric in metrics:
-        if metric not in org_data.columns:
-            st.warning(f"Metric {metric} not found in data.")
-            continue
+import plotly.express as px
 
-        base_metric = metric.replace('_interpolated', '').replace('_zeros_replaced', '')
-        display_name = metric_label_map.get(base_metric, metric)
+for metric in metrics:
+    if metric not in org_data.columns:
+        st.warning(f"Metric {metric} not found in data.")
+        continue
 
-        variant_suffix = {
-            "Interpolated": " (Interpolated)",
-            "Zeros Replaced": " (Zeros Replaced)",
-            "Raw": ""
+    base_metric = metric.replace('_interpolated', '').replace('_zeros_replaced', '')
+    display_name = metric_label_map.get(base_metric, metric)
+
+    variant_suffix = {
+        "Interpolated": " (Interpolated)",
+        "Zeros Replaced": " (Zeros Replaced)",
+        "Raw": ""
+    }
+    plot_title = title or f"{display_name}{variant_suffix[data_variant]} for {org_name}"
+
+    is_rate = not any(metric.startswith(m) for m in count_metrics)
+    is_los = metric.startswith('LAggreg')
+    y_label = "Percentage" if is_rate and not is_los else "Days" if is_los else "Count"
+
+    # --- Create a clean column for hover formatting
+    org_data = org_data.copy()
+    if is_rate and not is_los:
+        org_data["y_val"] = (org_data[metric] * 100).round(2)
+        hover_label = "Percentage"
+        hover_fmt = "%{y:.2f}%"
+    elif is_los:
+        org_data["y_val"] = org_data[metric].round(2)
+        hover_label = "Days"
+        hover_fmt = "%{y:.2f}"
+    else:
+        org_data["y_val"] = org_data[metric].round(0)
+        hover_label = "Count"
+        hover_fmt = "%{y:.0f}"
+
+    fig = px.line(
+        org_data,
+        x='yyyymmdd',
+        y="y_val",
+        markers=True,
+        title=plot_title,
+        labels={'yyyymmdd': 'Date', 'y_val': y_label},
+        hover_data={  # Suppress default hover data
+            'yyyymmdd': False,
+            'y_val': False
         }
-        plot_title = title or f"{display_name}{variant_suffix[data_variant]} for {org_name}"
-
-        is_rate = not any(metric.startswith(m) for m in count_metrics)
-        y_vals = org_data[metric] * 100 if is_rate and not metric.startswith('LAggreg') else org_data[metric]
-        y_label = "Percentage" if is_rate and not metric.startswith('LAggreg') else "Days" if metric.startswith('LAggreg') else "Count"
-
-        fig = px.line(
-            org_data,
-            x='yyyymmdd',
-            y=y_vals,
-            markers=True,
-            title=plot_title,
-            labels={'yyyymmdd': 'Date', metric: y_label},
-            hover_data={'yyyymmdd': True, metric: True}
+    )
+    
+    fig.update_traces(
+        hovertemplate=(
+            "<b>Date:</b> %{x}<br>" +
+            f"<b>{hover_label}:</b> {hover_fmt}<extra></extra>"
         )
+    )
 
-        fig.update_layout(
-            xaxis_title="Date",
-            yaxis_title=y_label,
-            hovermode="x unified",
-            margin=dict(l=40, r=20, t=60, b=40),
-        )
+    fig.update_layout(
+        xaxis_title="Date",
+        yaxis_title=y_label,
+        hovermode="x unified",
+        margin=dict(l=40, r=20, t=60, b=40),
+    )
 
-        if is_rate and not metric.startswith('LAggreg'):
-            fig.update_yaxes(range=[0, 100], ticksuffix="%")
+    if is_rate and not is_los:
+        fig.update_yaxes(range=[0, 100], ticksuffix="%")
 
-        plots.append(fig)
+    plots.append(fig)
 
     return plots
 
