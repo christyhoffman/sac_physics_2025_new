@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
-from matplotlib import pyplot as plt
-import seaborn as sns
+import plotly.express as px
 import urllib.error
 
 # --- PASSWORD PROTECTION ---
@@ -61,9 +60,8 @@ ordered_labels = [
     'Save Rate'
 ]
 
-# --- PLOT FUNCTION ---
-def plot_organization_metrics(df, org_name, metrics=['PAdopt_monthly'], title=None, data_variant="Raw"):
-    sns.set(style='whitegrid')
+# --- PLOT FUNCTION WITH PLOTLY ---
+def plot_organization_metrics_plotly(df, org_name, metrics=['PAdopt_monthly'], title=None, data_variant="Raw"):
     org_data = df[df['organization_name'] == org_name].copy()
 
     if org_data.empty:
@@ -73,25 +71,13 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt_monthly'], title=No
     if not pd.api.types.is_datetime64_any_dtype(org_data['yyyymmdd']):
         org_data['yyyymmdd'] = pd.to_datetime(org_data['yyyymmdd'])
 
-    count_metrics = {'DIntake', 'CInventAvg', 'LAggreg'}
     plots = []
+    count_metrics = {'DIntake', 'CInventAvg', 'LAggreg'}
 
     for metric in metrics:
         if metric not in org_data.columns:
             st.warning(f"Metric {metric} not found in data.")
             continue
-
-        fig, ax = plt.subplots(figsize=(12, 5))
-
-        # Determine if this is a rate metric
-        is_rate = not any(metric.startswith(m) for m in count_metrics)
-
-        # Cap percentage values at 100
-        if is_rate and not metric.startswith('LAggreg'):
-            y_vals = org_data[metric] * 100
-            y_vals = y_vals.clip(upper=100)
-        else:
-            y_vals = org_data[metric]
 
         base_metric = metric.replace('_interpolated', '').replace('_zeros_replaced', '')
         display_name = metric_label_map.get(base_metric, metric)
@@ -101,25 +87,32 @@ def plot_organization_metrics(df, org_name, metrics=['PAdopt_monthly'], title=No
             "Zeros Replaced": " (Zeros Replaced)",
             "Raw": ""
         }
-        plot_title = title or f"{display_name}{variant_suffix[data_variant]} Over Time for {org_name}"
+        plot_title = title or f"{display_name}{variant_suffix[data_variant]} for {org_name}"
 
-        y_label = "Days" if base_metric == 'LAggreg' else "Percentage" if is_rate else "Count"
+        is_rate = not any(metric.startswith(m) for m in count_metrics)
+        y_vals = org_data[metric] * 100 if is_rate and not metric.startswith('LAggreg') else org_data[metric]
+        y_label = "Percentage" if is_rate and not metric.startswith('LAggreg') else "Days" if metric.startswith('LAggreg') else "Count"
 
-        ax.plot(org_data['yyyymmdd'], y_vals, marker='o', linewidth=2, color=sns.color_palette("Set2", 1)[0])
-        ax.set_title(plot_title, fontsize=15, pad=15)
-        ax.set_xlabel("Date", fontsize=12)
-        ax.set_ylabel(y_label, fontsize=12)
+        fig = px.line(
+            org_data,
+            x='yyyymmdd',
+            y=y_vals,
+            markers=True,
+            title=plot_title,
+            labels={'yyyymmdd': 'Date', metric: y_label},
+            hover_data={'yyyymmdd': True, metric: True}
+        )
 
-        if is_rate and base_metric != 'LAggreg':
-            ax.set_ylim(0, 100)
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f'{x:.2f}%'))
-        else:
-            ax.set_ylim(bottom=0)
+        fig.update_layout(
+            xaxis_title="Date",
+            yaxis_title=y_label,
+            hovermode="x unified",
+            margin=dict(l=40, r=20, t=60, b=40),
+        )
 
-        ax.grid(True, linestyle='--', alpha=0.7)
-        ax.tick_params(axis='x', rotation=45)
-        ax.legend([display_name])
-        plt.tight_layout()
+        if is_rate and not metric.startswith('LAggreg'):
+            fig.update_yaxes(range=[0, 100], ticksuffix="%")
+
         plots.append(fig)
 
     return plots
@@ -177,6 +170,6 @@ for label in selected_labels:
 
 # Plot button
 if org_name and st.button("Show Plot"):
-    plots = plot_organization_metrics(df, org_name, metrics=selected_metrics, data_variant=data_variant)
+    plots = plot_organization_metrics_plotly(df, org_name, metrics=selected_metrics, data_variant=data_variant)
     for fig in plots:
-        st.pyplot(fig)
+        st.plotly_chart(fig, use_container_width=True)
