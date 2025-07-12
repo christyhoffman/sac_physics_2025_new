@@ -43,9 +43,9 @@ df = load_data()
 metric_label_map = {
     'CInventAvg': 'Average Daily Inventory',
     'DIntake': 'Daily Intake',
-    'PAdopt': 'Percent Adopted',
-    'PTransfer': 'Percent Transferred',
-    'PNonlive': 'Percent Nonlive Outcomes',
+    'PAdopt_monthly': 'Animal's Probability of Adoption During Month',
+    'PTransfer_monthly': 'Animal's Probability of Transfer During Month',
+    'PNonlive_monthly': 'Animal's Probability of a Nonlive Outcome During Month',
     'LAggreg': 'Length of Stay',
     'SaveR': 'Save Rate'
 }
@@ -62,7 +62,7 @@ ordered_labels = [
 ]
 
 # --- PLOT FUNCTION ---
-def plot_organization_metrics(df, org_name, metrics=['PAdopt'], title=None, data_variant="Raw"):
+def plot_organization_metrics(df, org_name, metrics=['PAdopt_monthly'], title=None, data_variant="Raw"):
     sns.set(style='whitegrid')
     org_data = df[df['organization_name'] == org_name].copy()
 
