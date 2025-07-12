@@ -43,9 +43,9 @@ df = load_data()
 metric_label_map = {
     'CInventAvg': 'Average Daily Inventory',
     'DIntake': 'Daily Intake',
-    'PAdopt_monthly': 'Animal's Probability of Adoption During Month',
-    'PTransfer_monthly': 'Animal's Probability of Transfer During Month',
-    'PNonlive_monthly': 'Animal's Probability of a Nonlive Outcome During Month',
+    'PAdopt_monthly': 'Animal\'s Probability of Adoption During Month',
+    'PTransfer_monthly': 'Animal\'s Probability of Transfer During Month',
+    'PNonlive_monthly': 'Animal\'s Probability of a Nonlive Outcome During Month',
     'LAggreg': 'Length of Stay',
     'SaveR': 'Save Rate'
 }
