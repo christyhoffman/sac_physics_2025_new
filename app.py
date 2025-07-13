@@ -46,7 +46,7 @@ metric_label_map = {
     'PTransfer_monthly': 'Monthly Probability of Transfer',
     'PNonlive_monthly': 'Monthly Probability of Nonlive Outcome',
     'LAggreg': 'Length of Stay',
-    'SaveR': 'Save Rate'
+    'SaveR_monthly': 'Monthly Save Rate'
 }
 label_to_metric = {v: k for k, v in metric_label_map.items()}
 
@@ -57,7 +57,7 @@ ordered_labels = [
     'Monthly Probability of Transfer',
     'Monthly Probability of Nonlive Outcome',
     'Length of Stay',
-    'Save Rate'
+    'Monthly Save Rate'
 ]
 
 # --- PLOT FUNCTION WITH PLOTLY ---
