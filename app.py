@@ -70,14 +70,14 @@ ordered_labels = [
     'Average Daily Inventory',
     'Daily Intake',
 
-    'Monthly Prob. of Adoption (out of outcomes only)',
-    'Monthly Prob. of Adoption (absolute)',
+    'Monthly Percent Chance of Adoption (out of outcomes only)',
+    'Monthly Percent Chance of Adoption (absolute)',
 
-    'Monthly Prob. of Transfer (out of outcomes only)',
-    'Monthly Prob. of Transfer (absolute)',
+    'Monthly Percent Chance of Transfer (out of outcomes only)',
+    'Monthly Percent Chance of Transfer (absolute)',
 
-    'Monthly Prob. of Nonlive (out of outcomes only)',
-    'Monthly Prob. of Nonlive (absolute)',
+    'Monthly Percent Chance of Nonlive (out of outcomes only)',
+    'Monthly Percent Chance of Nonlive (absolute)',
 
     'Length of Stay',
     'Save Rate'
@@ -103,10 +103,11 @@ def plot_organization_metrics_plotly(
 
         # classify
         is_los      = metric.startswith("LAggreg")
+        is_save_rate      = metric.startswith("SaveR")
         base_metric = metric.replace('_zeros_replaced', '')
         is_count    = base_metric in count_metrics
         is_abs      = metric.endswith("_abs")
-        is_rate     = metric.startswith("P") and not is_los
+        is_rate     = (metric.startswith("P") or is_save_rate) and not is_los
 
         # extract & smooth
         y = org_data[metric]
