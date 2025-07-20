@@ -6,25 +6,16 @@ import urllib.error
 # --- PASSWORD PROTECTION ---
 def check_password():
     def password_entered():
-        st.session_state["auth_passed"] = (
-            st.session_state["password"] == st.secrets["auth"]["password"]
-        )
+        if st.session_state["password"] == st.secrets["auth"]["password"]:
+            st.session_state["auth_passed"] = True
+        else:
+            st.session_state["auth_passed"] = False
 
     if "auth_passed" not in st.session_state:
-        st.text_input(
-            "Enter password and press Enter",
-            type="password",
-            on_change=password_entered,
-            key="password"
-        )
+        st.text_input("Enter password and press Enter", type="password", on_change=password_entered, key="password")
         st.stop()
     elif not st.session_state["auth_passed"]:
-        st.text_input(
-            "Enter password",
-            type="password",
-            on_change=password_entered,
-            key="password"
-        )
+        st.text_input("Enter password", type="password", on_change=password_entered, key="password")
         st.error("Incorrect password")
         st.stop()
 
@@ -49,107 +40,106 @@ df = load_data()
 
 # --- METRIC LABELS & ORDER ---
 metric_label_map = {
-    'CInventAvg':                     'Average Daily Inventory',
-    'DIntake':                        'Daily Intake',
-
-    'PAdopt_monthly':                 'Monthly Percent Chance of Adoption (out of outcomes only)',
-    'PAdopt_monthly_abs':             'Monthly Percent Chance of Adoption (absolute)',
-
-    'PTransfer_monthly':              'Monthly Percent Chance of Transfer (out of outcomes only)',
-    'PTransfer_monthly_abs':          'Monthly Percent Chance of Transfer (absolute)',
-
-    'PNonlive_monthly':               'Monthly Percent Chance of Nonlive (out of outcomes only)',
-    'PNonlive_monthly_abs':           'Monthly Percent Chance of Nonlive (absolute)',
-
-    'LAggreg':                        'Length of Stay',
-    'SaveR':                  'Save Rate'
+    'CInventAvg': 'Average Daily Inventory',
+    'DIntake': 'Daily Intake',
+    'PAdopt_monthly': 'Monthly Probability of Adoption',
+    'PTransfer_monthly': 'Monthly Probability of Transfer',
+    'PNonlive_monthly': 'Monthly Probability of Nonlive Outcome',
+    'LAggreg': 'Length of Stay',
+    'SaveR_monthly': 'Monthly Save Rate'
 }
 label_to_metric = {v: k for k, v in metric_label_map.items()}
 
 ordered_labels = [
     'Average Daily Inventory',
     'Daily Intake',
-
-    'Monthly Percent Chance of Adoption (out of outcomes only)',
-    'Monthly Percent Chance of Adoption (absolute)',
-
-    'Monthly Percent Chance of Transfer (out of outcomes only)',
-    'Monthly Percent Chance of Transfer (absolute)',
-
-    'Monthly Percent Chance of Nonlive (out of outcomes only)',
-    'Monthly Percent Chance of Nonlive (absolute)',
-
+    'Monthly Probability of Adoption',
+    'Monthly Probability of Transfer',
+    'Monthly Probability of Nonlive Outcome',
     'Length of Stay',
-    'Save Rate'
+    'Monthly Save Rate'
 ]
 
 # --- PLOT FUNCTION WITH PLOTLY ---
-def plot_organization_metrics_plotly(
-    df, org_name, metrics, data_variant,
-    smoothing_method, ema_span, sma_window
-):
-    org_data = df[df['organization_name'] == org_name].sort_values('yyyymmdd')
+def plot_organization_metrics_plotly(df, org_name, metrics=['PAdopt_monthly'], title=None, data_variant="Raw",
+                                      smoothing_method="None", ema_span=3, sma_window=3):
+    org_data = df[df['organization_name'] == org_name].copy()
+
     if org_data.empty:
         st.warning(f"No data found for organization: {org_name}")
         return []
 
+    if not pd.api.types.is_datetime64_any_dtype(org_data['yyyymmdd']):
+        org_data['yyyymmdd'] = pd.to_datetime(org_data['yyyymmdd'])
+
+    org_data = org_data.sort_values('yyyymmdd')
     plots = []
-    count_metrics = {'CInventAvg', 'DIntake'}
+    count_metrics = {'DIntake', 'CInventAvg', 'LAggreg'}
 
     for metric in metrics:
         if metric not in org_data.columns:
             st.warning(f"Metric {metric} not found in data.")
             continue
 
-        # classify
-        is_los      = metric.startswith("LAggreg")
-        is_save_rate      = metric.startswith("SaveR")
-        base_metric = metric.replace('_zeros_replaced', '')
-        is_count    = base_metric in count_metrics
-        is_abs      = metric.endswith("_abs")
-        is_rate     = (metric.startswith("P") or is_save_rate) and not is_los
+        base_metric = metric.replace('_interpolated', '').replace('_zeros_replaced', '')
+        display_name = metric_label_map.get(base_metric, metric)
 
-        # extract & smooth
-        y = org_data[metric]
-        if smoothing_method == "Exponential Moving Average":
-            y = y.ewm(span=ema_span, adjust=False).mean()
-        elif smoothing_method == "Simple Moving Average":
-            y = y.rolling(window=sma_window, min_periods=1).mean()
+        variant_suffix = {
+            "Interpolated": " (Interpolated)",
+            "Zeros Replaced": " (Zeros Replaced)",
+            "Raw": ""
+        }
+        plot_title = title or f"{display_name}{variant_suffix[data_variant]} for {org_name}"
 
-        # convert raw-prop to percent
+        is_rate = not any(metric.startswith(m) for m in count_metrics)
+        is_los = metric.startswith('LAggreg')
+        y_label = "Percentage" if is_rate and not is_los else "Days" if is_los else "Count"
+
+        # Apply smoothing
+        y_series = org_data[metric]
         if is_rate:
-            y = y * 100
+            if smoothing_method == "Exponential Moving Average":
+                y_series = y_series.ewm(span=ema_span, adjust=False).mean()
+            elif smoothing_method == "Simple Moving Average":
+                y_series = y_series.rolling(window=sma_window, min_periods=1).mean()
 
-        # axis labels & hover formatting
-        if is_los:
-            y_label, hover_fmt = "Days", "%{y:.2f}"
-        elif is_count:
-            y_label, hover_fmt = "Count", "%{y:.0f}"
+        # Create hover formatting
+        org_data = org_data.copy()
+        if is_rate and not is_los:
+            org_data["y_val"] = (y_series * 100).round(2)
+            hover_label = "Percentage"
+            hover_fmt = "%{y:.2f}%"
+        elif is_los:
+            org_data["y_val"] = y_series.round(2)
+            hover_label = "Days"
+            hover_fmt = "%{y:.2f}"
         else:
-            y_label, hover_fmt = "Percentage", "%{y:.2f}%"
-
-        # prep DataFrame for plotting
-        plot_df = org_data.assign(y_val=y.round(2))
+            org_data["y_val"] = y_series.round(0)
+            hover_label = "Count"
+            hover_fmt = "%{y:.0f}"
 
         fig = px.line(
-            plot_df,
+            org_data,
             x='yyyymmdd',
-            y='y_val',
+            y="y_val",
             markers=True,
-            title=(
-                f"{metric_label_map[base_metric]}"
-                + (" (Zeros Replaced)" if data_variant=='Zeros Replaced' else "")
-                + f" for {org_name}"
-            ),
+            title=plot_title,
             labels={'yyyymmdd': 'Date', 'y_val': y_label},
             hover_data={'yyyymmdd': False, 'y_val': False}
         )
+
         fig.update_traces(
-            hovertemplate=f"<b>Date:</b> %{{x}}<br><b>{y_label}:</b> {hover_fmt}<extra></extra>"
+            hovertemplate=f"<b>Date:</b> %{{x}}<br><b>{hover_label}:</b> {hover_fmt}<extra></extra>"
         )
 
-        # only cap percent axes
-        if not (is_los or is_count):
+        fig.update_layout(
+            xaxis_title="Date",
+            yaxis_title=y_label,
+            hovermode="x unified",
+            margin=dict(l=40, r=20, t=60, b=40),
+        )
+
+        if is_rate and not is_los:
             fig.update_yaxes(range=[0, 100], ticksuffix="%")
 
         plots.append(fig)
@@ -160,10 +150,7 @@ def plot_organization_metrics_plotly(
 st.title("📊 Shelter Metrics Dashboard")
 
 # Organization selection
-selection_mode = st.radio(
-    "Choose organization selection method:",
-    ["By Name", "By ID"]
-)
+selection_mode = st.radio("Choose organization selection method:", ["By Name", "By ID"])
 org_name = None
 
 if selection_mode == "By Name":
@@ -196,16 +183,10 @@ selected_labels = st.multiselect(
 )
 
 # Choose data variant
-data_variant = st.selectbox(
-    "Choose data version",
-    ["Raw", "Zeros Replaced"]
-)
+data_variant = st.selectbox("Choose data version", ["Raw", "Interpolated", "Zeros Replaced"])
 
 # Smoothing method
-smoothing_method = st.selectbox(
-    "Choose smoothing method",
-    ["None", "Exponential Moving Average", "Simple Moving Average"]
-)
+smoothing_method = st.selectbox("Choose smoothing method", ["None", "Exponential Moving Average", "Simple Moving Average"])
 
 # Smoothing config
 ema_span = sma_window = None
@@ -214,25 +195,28 @@ if smoothing_method == "Exponential Moving Average":
 elif smoothing_method == "Simple Moving Average":
     sma_window = st.slider("Select SMA window (months)", min_value=2, max_value=12, value=3)
 
-# Map labels to column names
+# Map labels to column names based on data variant
 selected_metrics = []
 for label in selected_labels:
-    base = label_to_metric[label]
-    if data_variant == "Zeros Replaced":
-        selected_metrics.append(f"{base}_zeros_replaced")
+    metric_base = label_to_metric[label]
+    if data_variant == "Interpolated":
+        metric_name = f"{metric_base}_interpolated"
+    elif data_variant == "Zeros Replaced":
+        metric_name = f"{metric_base}_zeros_replaced"
     else:
-        selected_metrics.append(base)
+        metric_name = metric_base
+    selected_metrics.append(metric_name)
 
 # Plot button
 if org_name and st.button("Show Plot"):
     plots = plot_organization_metrics_plotly(
         df,
         org_name,
-        selected_metrics,
-        data_variant,
-        smoothing_method,
-        ema_span,
-        sma_window
+        metrics=selected_metrics,
+        data_variant=data_variant,
+        smoothing_method=smoothing_method,
+        ema_span=ema_span,
+        sma_window=sma_window
     )
     for fig in plots:
         st.plotly_chart(fig, use_container_width=True)
