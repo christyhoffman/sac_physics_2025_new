@@ -81,11 +81,12 @@ def plot_organization_metrics_plotly(df, org_name, metrics=['PAdopt_monthly'], t
             st.warning(f"Metric {metric} not found in data.")
             continue
 
-        base_metric = metric.replace('_interpolated', '').replace('_zeros_replaced', '')
+        #base_metric = metric.replace('_interpolated', '').replace('_zeros_replaced', '')
+        base_metric = metric.replace('_zeros_replaced', '')
         display_name = metric_label_map.get(base_metric, metric)
 
         variant_suffix = {
-            "Interpolated": " (Interpolated)",
+            #"Interpolated": " (Interpolated)",
             "Zeros Replaced": " (Zeros Replaced)",
             "Raw": ""
         }
@@ -183,7 +184,8 @@ selected_labels = st.multiselect(
 )
 
 # Choose data variant
-data_variant = st.selectbox("Choose data version", ["Raw", "Interpolated", "Zeros Replaced"])
+#data_variant = st.selectbox("Choose data version", ["Raw", "Interpolated", "Zeros Replaced"])
+data_variant = st.selectbox("Choose data version", ["Raw", "Zeros Replaced"])
 
 # Smoothing method
 smoothing_method = st.selectbox("Choose smoothing method", ["None", "Exponential Moving Average", "Simple Moving Average"])
@@ -199,8 +201,8 @@ elif smoothing_method == "Simple Moving Average":
 selected_metrics = []
 for label in selected_labels:
     metric_base = label_to_metric[label]
-    if data_variant == "Interpolated":
-        metric_name = f"{metric_base}_interpolated"
+    #if data_variant == "Interpolated":
+        #metric_name = f"{metric_base}_interpolated"
     elif data_variant == "Zeros Replaced":
         metric_name = f"{metric_base}_zeros_replaced"
     else:
