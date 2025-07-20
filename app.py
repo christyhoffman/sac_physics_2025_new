@@ -71,14 +71,14 @@ ordered_labels = [
     'Average Daily Inventory',
     'Daily Intake',
 
-    'Monthly Prob. of Adoption (prop)',
-    'Monthly Prob. of Adoption (%)',
+    'Monthly Prob. of Adoption (out of outcomes)',
+    'Monthly Prob. of Adoption (absolute)',
 
-    'Monthly Prob. of Transfer (prop)',
-    'Monthly Prob. of Transfer (%)',
+    'Monthly Prob. of Transfer (out of outcomes)',
+    'Monthly Prob. of Transfer (absolute)',
 
-    'Monthly Prob. of Nonlive (prop)',
-    'Monthly Prob. of Nonlive (%)',
+    'Monthly Prob. of Nonlive (out of outcomes)',
+    'Monthly Prob. of Nonlive (absolute)',
 
     'Length of Stay',
     'Monthly Save Rate'
