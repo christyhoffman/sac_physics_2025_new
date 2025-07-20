@@ -42,9 +42,9 @@ df = load_data()
 metric_label_map = {
     'CInventAvg': 'Average Daily Inventory',
     'DIntake': 'Daily Intake',
-    'PAdopt_monthly': 'Monthly Probability of Adoption',
-    'PTransfer_monthly': 'Monthly Probability of Transfer',
-    'PNonlive_monthly': 'Monthly Probability of Nonlive Outcome',
+    'PAdopt_monthly': 'Monthly Percent Chance of Adoption',
+    'PTransfer_monthly': 'Monthly Percent Chance of Transfer',
+    'PNonlive_monthly': 'Monthly Percent Chance of Nonlive Outcome',
     'LAggreg': 'Length of Stay',
     'SaveR_monthly': 'Monthly Save Rate'
 }
@@ -53,9 +53,9 @@ label_to_metric = {v: k for k, v in metric_label_map.items()}
 ordered_labels = [
     'Average Daily Inventory',
     'Daily Intake',
-    'Monthly Probability of Adoption',
-    'Monthly Probability of Transfer',
-    'Monthly Probability of Nonlive Outcome',
+    'Monthly Percent Chance of Adoption',
+    'Monthly Percent Chance of Transfer',
+    'Monthly Percent Chance of Nonlive Outcome',
     'Length of Stay',
     'Monthly Save Rate'
 ]
