@@ -94,18 +94,19 @@ def plot_organization_metrics_plotly(
         return []
 
     plots = []
-    # define which metrics are raw-counts vs percentages
     count_metrics = {'CInventAvg', 'DIntake'}
+
     for metric in metrics:
         if metric not in org_data.columns:
             st.warning(f"Metric {metric} not found in data.")
             continue
 
         # classify
-        is_los    = metric.startswith("LAggreg")
-        is_count  = metric in count_metrics
-        is_abs    = metric.endswith("_abs")
-        is_rate   = metric.startswith("P") and not is_los
+        is_los      = metric.startswith("LAggreg")
+        base_metric = metric.replace('_zeros_replaced', '')
+        is_count    = base_metric in count_metrics
+        is_abs      = metric.endswith("_abs")
+        is_rate     = metric.startswith("P") and not is_los
 
         # extract & smooth
         y = org_data[metric]
@@ -114,7 +115,7 @@ def plot_organization_metrics_plotly(
         elif smoothing_method == "Simple Moving Average":
             y = y.rolling(window=sma_window, min_periods=1).mean()
 
-        # only convert raw‐prop to percent
+        # convert raw-prop to percent
         if is_rate and not is_abs:
             y = y * 100
 
@@ -124,10 +125,9 @@ def plot_organization_metrics_plotly(
         elif is_count:
             y_label, hover_fmt = "Count", "%{y:.0f}"
         else:
-            # either P*_abs or P*_monthly→percent
             y_label, hover_fmt = "Percentage", "%{y:.2f}%"
 
-        # assemble DataFrame for Plotly
+        # prep DataFrame for plotting
         plot_df = org_data.assign(y_val=y.round(2))
 
         fig = px.line(
@@ -136,14 +136,13 @@ def plot_organization_metrics_plotly(
             y='y_val',
             markers=True,
             title=(
-                f"{metric_label_map[metric.replace('_zeros_replaced','')]}"
+                f"{metric_label_map[base_metric]}"
                 + (" (Zeros Replaced)" if data_variant=='Zeros Replaced' else "")
                 + f" for {org_name}"
             ),
             labels={'yyyymmdd': 'Date', 'y_val': y_label},
             hover_data={'yyyymmdd': False, 'y_val': False}
         )
-
         fig.update_traces(
             hovertemplate=f"<b>Date:</b> %{{x}}<br><b>{y_label}:</b> {hover_fmt}<extra></extra>"
         )
