@@ -203,7 +203,7 @@ for label in selected_labels:
     metric_base = label_to_metric[label]
     #if data_variant == "Interpolated":
         #metric_name = f"{metric_base}_interpolated"
-    elif data_variant == "Zeros Replaced":
+    if data_variant == "Zeros Replaced":
         metric_name = f"{metric_base}_zeros_replaced"
     else:
         metric_name = metric_base
