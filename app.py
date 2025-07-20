@@ -52,14 +52,14 @@ metric_label_map = {
     'CInventAvg':                     'Average Daily Inventory',
     'DIntake':                        'Daily Intake',
 
-    'PAdopt_monthly':                 'Monthly Prob. of Adoption (prop)',
-    'PAdopt_monthly_abs':             'Monthly Prob. of Adoption (%)',
+    'PAdopt_monthly':                 'Monthly Prob. of Adoption (out of outcomes only)',
+    'PAdopt_monthly_abs':             'Monthly Prob. of Adoption (absolute)',
 
-    'PTransfer_monthly':              'Monthly Prob. of Transfer (prop)',
-    'PTransfer_monthly_abs':          'Monthly Prob. of Transfer (%)',
+    'PTransfer_monthly':              'Monthly Prob. of Transfer (out of outcomes only)',
+    'PTransfer_monthly_abs':          'Monthly Prob. of Transfer (absolute)',
 
-    'PNonlive_monthly':               'Monthly Prob. of Nonlive (prop)',
-    'PNonlive_monthly_abs':           'Monthly Prob. of Nonlive (%)',
+    'PNonlive_monthly':               'Monthly Prob. of Nonlive (out of outcomes only)',
+    'PNonlive_monthly_abs':           'Monthly Prob. of Nonlive (absolute)',
 
     'LAggreg':                        'Length of Stay',
     'SaveR_monthly':                  'Monthly Save Rate'
@@ -70,14 +70,14 @@ ordered_labels = [
     'Average Daily Inventory',
     'Daily Intake',
 
-    'Monthly Prob. of Adoption (prop)',
-    'Monthly Prob. of Adoption (%)',
+    'Monthly Prob. of Adoption (out of outcomes only)',
+    'Monthly Prob. of Adoption (absolute)',
 
-    'Monthly Prob. of Transfer (prop)',
-    'Monthly Prob. of Transfer (%)',
+    'Monthly Prob. of Transfer (out of outcomes only)',
+    'Monthly Prob. of Transfer (absolute)',
 
-    'Monthly Prob. of Nonlive (prop)',
-    'Monthly Prob. of Nonlive (%)',
+    'Monthly Prob. of Nonlive (out of outcomes only)',
+    'Monthly Prob. of Nonlive (absolute)',
 
     'Length of Stay',
     'Monthly Save Rate'
