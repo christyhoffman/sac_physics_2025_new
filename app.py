@@ -52,17 +52,17 @@ metric_label_map = {
     'CInventAvg':                     'Average Daily Inventory',
     'DIntake':                        'Daily Intake',
 
-    'PAdopt_monthly':                 'Monthly Prob. of Adoption (out of outcomes only)',
-    'PAdopt_monthly_abs':             'Monthly Prob. of Adoption (absolute)',
+    'PAdopt_monthly':                 'Monthly Percent Chance of Adoption (out of outcomes only)',
+    'PAdopt_monthly_abs':             'Monthly Percent Chance of Adoption (absolute)',
 
-    'PTransfer_monthly':              'Monthly Prob. of Transfer (out of outcomes only)',
-    'PTransfer_monthly_abs':          'Monthly Prob. of Transfer (absolute)',
+    'PTransfer_monthly':              'Monthly Percent Chance of Transfer (out of outcomes only)',
+    'PTransfer_monthly_abs':          'Monthly Percent Chance of Transfer (absolute)',
 
-    'PNonlive_monthly':               'Monthly Prob. of Nonlive (out of outcomes only)',
-    'PNonlive_monthly_abs':           'Monthly Prob. of Nonlive (absolute)',
+    'PNonlive_monthly':               'Monthly Percent Chance of Nonlive (out of outcomes only)',
+    'PNonlive_monthly_abs':           'Monthly Percent Chance of Nonlive (absolute)',
 
     'LAggreg':                        'Length of Stay',
-    'SaveR_monthly':                  'Monthly Save Rate'
+    'SaveR':                  'Save Rate'
 }
 label_to_metric = {v: k for k, v in metric_label_map.items()}
 
@@ -80,7 +80,7 @@ ordered_labels = [
     'Monthly Prob. of Nonlive (absolute)',
 
     'Length of Stay',
-    'Monthly Save Rate'
+    'Save Rate'
 ]
 
 # --- PLOT FUNCTION WITH PLOTLY ---
@@ -116,7 +116,7 @@ def plot_organization_metrics_plotly(
             y = y.rolling(window=sma_window, min_periods=1).mean()
 
         # convert raw-prop to percent
-        if is_rate and not is_abs:
+        if is_rate:
             y = y * 100
 
         # axis labels & hover formatting
