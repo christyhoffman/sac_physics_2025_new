@@ -1,12 +1,18 @@
-```python
-import streamlit as st
-import pandas as pd
-import urllib.error
-import plotly.graph_objects as go
+Below is the **complete, working `app.py`**. Copy **only** the code (don’t include the triple backticks).
 
-# -----------------------------
+```python
+import io
+import urllib.error
+import urllib.request
+
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+
+
+# =============================
 # PASSWORD PROTECTION
-# -----------------------------
+# =============================
 def check_password():
     def password_entered():
         if st.session_state.get("password") == st.secrets["auth"]["password"]:
@@ -15,78 +21,181 @@ def check_password():
             st.session_state["auth_passed"] = False
 
     if "auth_passed" not in st.session_state:
-        st.text_input("Enter password and press Enter", type="password", on_change=password_entered, key="password")
+        st.text_input(
+            "Enter password and press Enter",
+            type="password",
+            on_change=password_entered,
+            key="password",
+        )
         st.stop()
     elif not st.session_state["auth_passed"]:
-        st.text_input("Enter password", type="password", on_change=password_entered, key="password")
+        st.text_input(
+            "Enter password",
+            type="password",
+            on_change=password_entered,
+            key="password",
+        )
         st.error("Incorrect password")
         st.stop()
 
+
 check_password()
 
-# -----------------------------
-# LOAD DATA
-# -----------------------------
-@st.cache_data
-def load_data():
+
+# =============================
+# ROBUST CSV LOADER
+# =============================
+@st.cache_data(show_spinner=True)
+def _read_csv_bytes(raw_bytes: bytes) -> pd.DataFrame:
+    """
+    Try multiple parsing strategies on raw bytes.
+    Returns a DataFrame or raises the last exception.
+    """
+    # 1) Fast path: default C engine
+    try:
+        return pd.read_csv(io.BytesIO(raw_bytes))
+    except Exception:
+        pass
+
+    # 2) Python engine with comma, skipping bad lines
+    try:
+        return pd.read_csv(
+            io.BytesIO(raw_bytes),
+            engine="python",
+            sep=",",
+            quotechar='"',
+            escapechar="\\",
+            on_bad_lines="skip",
+        )
+    except Exception:
+        pass
+
+    # 3) Python engine with autodetected delimiter, skipping bad lines
+    try:
+        return pd.read_csv(
+            io.BytesIO(raw_bytes),
+            engine="python",
+            sep=None,
+            on_bad_lines="skip",
+        )
+    except Exception:
+        pass
+
+    # 4) Try tab-separated (common fallback)
+    try:
+        return pd.read_csv(
+            io.BytesIO(raw_bytes),
+            engine="python",
+            sep="\t",
+            on_bad_lines="skip",
+        )
+    except Exception as e:
+        raise e
+
+
+@st.cache_data(show_spinner=True)
+def load_data_from_drive() -> pd.DataFrame:
+    """
+    Download CSV bytes from Google Drive export URL and parse robustly.
+    """
     file_id = st.secrets["gdrive"]["file_id"]
     url = f"https://drive.google.com/uc?export=download&id={file_id}"
     try:
-        df = pd.read_csv(url)
+        with urllib.request.urlopen(url) as resp:
+            raw_bytes = resp.read()
+        df = _read_csv_bytes(raw_bytes)
         return df
     except urllib.error.HTTPError:
-        st.error("Could not load CSV file. Make sure it's shared publicly.")
+        st.error("Could not load CSV file from Google Drive (HTTP error). Make sure it is shared publicly.")
         st.stop()
     except Exception as e:
-        st.error(f"An unexpected error occurred: {e}")
+        # Propagate so the caller can trigger upload fallback
+        raise e
+
+
+# Try Drive first; if it fails, allow manual upload
+drive_error = None
+try:
+    df = load_data_from_drive()
+except Exception as e:
+    drive_error = str(e)
+    df = None
+
+if df is None:
+    st.error(
+        "Could not parse the Google Drive CSV cleanly.\n\n"
+        f"Details: {drive_error}\n\n"
+        "Please upload the CSV manually below. The app will try multiple parsing strategies."
+    )
+    uploaded = st.file_uploader("Upload CSV", type=["csv"])
+    if not uploaded:
+        st.stop()
+    try:
+        df = _read_csv_bytes(uploaded.read())
+        st.success("File uploaded and parsed successfully.")
+    except Exception as e:
+        st.error(f"Still couldn't parse the CSV: {e}")
         st.stop()
 
-df = load_data()
 
-# Ensure datetime column
+# =============================
+# BASIC CLEANUP
+# =============================
+# Ensure datetime
 if "yyyymmdd" in df.columns and not pd.api.types.is_datetime64_any_dtype(df["yyyymmdd"]):
     df["yyyymmdd"] = pd.to_datetime(df["yyyymmdd"], errors="coerce")
 
-# -----------------------------
-# PLOTTING FUNCTIONS (Plotly)
-# -----------------------------
+# Coerce org id to int (where possible)
+if "organization_id" in df.columns:
+    df["organization_id"] = pd.to_numeric(df["organization_id"], errors="coerce").astype("Int64")
+
+# Fill org name missing with empty string to avoid UI issues
+if "organization_name" in df.columns:
+    df["organization_name"] = df["organization_name"].fillna("")
+
+# Helper: check required columns for a given plot
+def assert_columns_present(data: pd.DataFrame, cols: list):
+    missing = [c for c in cols if c not in data.columns]
+    if missing:
+        raise KeyError(f"Missing required columns: {missing}")
+
+
+# =============================
+# PLOTTING (PLOTLY)
+# =============================
 def plot_monthly_exit_distribution_interactive(
-    df,
-    org_id,
-    type="_abs",                # "_abs" (All animals) or "_cond" (Animals with an outcome)
-    suffix="_zeros_replaced",   # "" (Raw) or "_zeros_replaced"
-    title=None,
-    smooth=False,
-    window=3
-):
-    """
-    Interactive stacked area plot of monthly exit probabilities using Plotly.
-    Hover shows month/year and probability for each category.
-    """
-    org_data = df[df["organization_id"] == org_id].copy()
+    data: pd.DataFrame,
+    org_id: int,
+    type: str = "_abs",               # "_abs" (All animals) or "_cond" (Animals with an outcome)
+    suffix: str = "_zeros_replaced",  # "" (Raw) or "_zeros_replaced"
+    title: str | None = None,
+    smooth: bool = False,
+    window: int = 3,
+) -> go.Figure:
+    org_data = data[data["organization_id"] == org_id].copy()
     if org_data.empty:
         raise ValueError("No data for this organization_id")
+
     org_name = org_data["organization_name"].iloc[0] if "organization_name" in org_data.columns else str(org_id)
 
     if not pd.api.types.is_datetime64_any_dtype(org_data["yyyymmdd"]):
         org_data["yyyymmdd"] = pd.to_datetime(org_data["yyyymmdd"], errors="coerce")
 
-    metrics = {
+    # Define metric columns
+    column_map = {
         f"PAdopt_monthly{type}{suffix}": "Adopt",
         f"PReclaim_monthly{type}{suffix}": "Reclaim",
         f"PTransfer_monthly{type}{suffix}": "Transfer",
         f"PNonlive_monthly{type}{suffix}": "Non-live",
     }
     if type != "_cond":
-        metrics[f"PNoExit_monthly{type}{suffix}"] = "No Exit"
+        column_map[f"PNoExit_monthly{type}{suffix}"] = "No Exit"
 
-    missing = [c for c in metrics.keys() if c not in org_data.columns]
-    if missing:
-        raise KeyError(f"Missing required columns: {missing}")
+    assert_columns_present(org_data, list(column_map.keys()))
 
-    plot_data = org_data[["yyyymmdd"] + list(metrics.keys())].copy().sort_values("yyyymmdd")
+    plot_data = org_data[["yyyymmdd"] + list(column_map.keys())].copy().sort_values("yyyymmdd")
     plot_data = plot_data.set_index("yyyymmdd")
-    plot_data.columns = [metrics[c] for c in plot_data.columns]
+    plot_data.columns = [column_map[c] for c in plot_data.columns]
 
     if smooth:
         plot_data = plot_data.rolling(window=window, min_periods=1, center=True).mean()
@@ -102,7 +211,7 @@ def plot_monthly_exit_distribution_interactive(
     fig = go.Figure()
     x_vals = plot_data.index
 
-    # Add in a stable legend order
+    # Stable legend order
     for col in ["Adopt", "Reclaim", "Transfer", "Non-live", "No Exit"]:
         if col not in plot_data.columns:
             continue
@@ -135,27 +244,31 @@ def plot_monthly_exit_distribution_interactive(
 
 
 def plot_inventory_interactive(
-    df,
-    org_id,
-    suffix="",                 # "" (Raw) or "_zeros_replaced"
-    title=None,
-    smooth=False,
-    window=3
-):
-    """
-    Interactive line chart of Average Daily Inventory (CInventAvg) with hover tooltips.
-    """
-    org_data = df[df["organization_id"] == org_id].copy()
+    data: pd.DataFrame,
+    org_id: int,
+    suffix: str = "",               # "" (Raw) or "_zeros_replaced"
+    title: str | None = None,
+    smooth: bool = False,
+    window: int = 3,
+) -> go.Figure:
+    org_data = data[data["organization_id"] == org_id].copy()
     if org_data.empty:
         raise ValueError("No data for this organization_id")
+
     org_name = org_data["organization_name"].iloc[0] if "organization_name" in org_data.columns else str(org_id)
 
     if not pd.api.types.is_datetime64_any_dtype(org_data["yyyymmdd"]):
         org_data["yyyymmdd"] = pd.to_datetime(org_data["yyyymmdd"], errors="coerce")
 
-    metric_col = f"CInventAvg{suffix}"  # expect CInventAvg or CInventAvg_zeros_replaced
+    metric_col = f"CInventAvg{suffix}"
+    # Graceful fallback if variant column is missing
     if metric_col not in org_data.columns:
-        raise KeyError(f"Missing required column: {metric_col}")
+        base = "CInventAvg"
+        if base in org_data.columns:
+            metric_col = base
+            st.warning(f"Column '{f'CInventAvg{suffix}'}' not found. Falling back to '{base}'.")
+        else:
+            raise KeyError(f"Missing required column: {f'CInventAvg{suffix}'}")
 
     plot_data = org_data[["yyyymmdd", metric_col]].copy().sort_values("yyyymmdd").set_index("yyyymmdd")
 
@@ -182,9 +295,10 @@ def plot_inventory_interactive(
     )
     return fig
 
-# -----------------------------
-# USER INTERFACE
-# -----------------------------
+
+# =============================
+# UI
+# =============================
 st.title("📊 Shelter Dashboard")
 
 # Organization selection
@@ -193,6 +307,7 @@ org_name = None
 org_id = None
 
 if selection_mode == "By Name":
+    assert_columns_present(df, ["organization_name", "organization_id"])
     org_names = df["organization_name"].dropna().unique()
     org_name = st.selectbox("Select Organization Name", sorted(org_names))
     if org_name:
@@ -202,6 +317,7 @@ if selection_mode == "By Name":
             st.stop()
         org_id = int(ids[0])
 else:
+    assert_columns_present(df, ["organization_id", "organization_name"])
     org_id_input = st.text_input("Enter Organization ID")
     if org_id_input:
         try:
@@ -230,13 +346,13 @@ window = 3
 if smooth_label:
     window = st.slider("Smoothing window (months)", min_value=2, max_value=12, value=3)
 
-# Plot selection (users can choose any combination)
+# Plot selection (any combination)
 st.subheader("Choose plots to display")
 show_inventory = st.checkbox("Average Daily Inventory", value=True)
 show_conditional = st.checkbox("Animals with an outcome (conditional)", value=True)
 show_absolute = st.checkbox("All animals (absolute)", value=True)
 
-# Plot
+# Render
 if org_id is not None and st.button("Show Plot(s)"):
     try:
         if show_inventory:
@@ -247,7 +363,7 @@ if org_id is not None and st.button("Show Plot(s)"):
                 suffix=suffix,
                 title=inv_title,
                 smooth=smooth_label,
-                window=window
+                window=window,
             )
             st.plotly_chart(fig_inv, use_container_width=True)
 
@@ -260,7 +376,7 @@ if org_id is not None and st.button("Show Plot(s)"):
                 suffix=suffix,
                 title=cond_title,
                 smooth=smooth_label,
-                window=window
+                window=window,
             )
             st.plotly_chart(fig_cond, use_container_width=True)
 
@@ -273,13 +389,12 @@ if org_id is not None and st.button("Show Plot(s)"):
                 suffix=suffix,
                 title=abs_title,
                 smooth=smooth_label,
-                window=window
+                window=window,
             )
             st.plotly_chart(fig_abs, use_container_width=True)
 
         if not any([show_inventory, show_conditional, show_absolute]):
             st.info("Select at least one plot to display.")
-
     except KeyError as e:
         st.error(f"Data is missing required columns for this view: {e}")
     except ValueError as e:
