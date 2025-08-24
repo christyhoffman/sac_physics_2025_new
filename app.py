@@ -164,7 +164,7 @@ def plot_monthly_exit_distribution_interactive(
     data: pd.DataFrame,
     org_id: int,
     type: str = "_abs",               # "_abs" (All animals) or "_cond" (Animals with an outcome)
-    suffix: str = "_zeros_replaced",  # "" (Raw) or "_zeros_replaced"
+    suffix: str = "_zeros_replaced",  # fixed to zeros_replaced in the UI
     title: Optional[str] = None,
     smooth: bool = False,
     window: int = 3,
@@ -208,7 +208,7 @@ def plot_monthly_exit_distribution_interactive(
     fig = go.Figure()
     x_vals = plot_data.index
 
-    # Stable legend order
+    # Build traces (avoid f-strings evaluating %{y})
     for col in ["Adopt", "Reclaim", "Transfer", "Non-live", "No Exit"]:
         if col not in plot_data.columns:
             continue
@@ -223,13 +223,13 @@ def plot_monthly_exit_distribution_interactive(
                 fillcolor=colors.get(col, None),
                 hovertemplate=(
                     "<b>Date:</b> %{x|%b %Y}<br>"
-                    f"<b>{col}:</b> %{y:.1%}<extra></extra>"
+                    + "<b>" + col + ":</b> %{y:.1%}<extra></extra>"
                 ),
             )
         )
 
     fig.update_layout(
-        title=title or f"Monthly Exit Probabilities for {org_name}",
+        title=title or f"Monthly Exit Probabilities for {org_name} (Zeros Replaced)",
         xaxis_title="Month",
         yaxis_title="Probability",
         yaxis=dict(tickformat=".0%", range=[0, 1]),
@@ -243,7 +243,7 @@ def plot_monthly_exit_distribution_interactive(
 def plot_inventory_interactive(
     data: pd.DataFrame,
     org_id: int,
-    suffix: str = "",               # "" (Raw) or "_zeros_replaced"
+    suffix: str = "_zeros_replaced",  # fixed to zeros_replaced by default
     title: Optional[str] = None,
     smooth: bool = False,
     window: int = 3,
@@ -284,7 +284,7 @@ def plot_inventory_interactive(
     )
 
     fig.update_layout(
-        title=title or f"Average Daily Inventory for {org_name}",
+        title=title or f"Average Daily Inventory for {org_name} (Zeros Replaced)",
         xaxis_title="Month",
         yaxis_title="Animals (count)",
         hovermode="x unified",
@@ -333,9 +333,8 @@ else:
         st.info("Please enter an organization ID.")
         st.stop()
 
-# Data version
-data_variant = st.selectbox("Choose data version", ["Raw", "Zeros Replaced"])
-suffix = "" if data_variant == "Raw" else "_zeros_replaced"
+# Fixed to zeros_replaced everywhere
+suffix = "_zeros_replaced"
 
 # Smoothing
 smooth_label = st.checkbox("Smoothed", value=False)
@@ -353,7 +352,7 @@ show_absolute = st.checkbox("All animals (absolute)", value=True)
 if org_id is not None and st.button("Show Plot(s)"):
     try:
         if show_inventory:
-            inv_title = f"Average Daily Inventory for {org_name} ({data_variant})"
+            inv_title = f"Average Daily Inventory for {org_name} (Zeros Replaced)"
             fig_inv = plot_inventory_interactive(
                 df,
                 org_id=org_id,
@@ -365,7 +364,7 @@ if org_id is not None and st.button("Show Plot(s)"):
             st.plotly_chart(fig_inv, use_container_width=True)
 
         if show_conditional:
-            cond_title = f"Conditional (Animals with an outcome) Probabilities for {org_name} ({data_variant})"
+            cond_title = f"Conditional (Animals with an outcome) Probabilities for {org_name} (Zeros Replaced)"
             fig_cond = plot_monthly_exit_distribution_interactive(
                 df,
                 org_id=org_id,
@@ -378,7 +377,7 @@ if org_id is not None and st.button("Show Plot(s)"):
             st.plotly_chart(fig_cond, use_container_width=True)
 
         if show_absolute:
-            abs_title = f"Absolute (All animals) Probabilities for {org_name} ({data_variant})"
+            abs_title = f"Absolute (All animals) Probabilities for {org_name} (Zeros Replaced)"
             fig_abs = plot_monthly_exit_distribution_interactive(
                 df,
                 org_id=org_id,
