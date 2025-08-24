@@ -1,6 +1,7 @@
 import io
 import urllib.error
 import urllib.request
+from typing import Optional
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -78,7 +79,7 @@ def _read_csv_bytes(raw_bytes: bytes) -> pd.DataFrame:
     except Exception:
         pass
 
-    # 4) Try tab-separated (common fallback)
+    # 4) Try tab-separated
     try:
         return pd.read_csv(
             io.BytesIO(raw_bytes),
@@ -106,7 +107,6 @@ def load_data_from_drive() -> pd.DataFrame:
         st.error("Could not load CSV file from Google Drive (HTTP error). Make sure it is shared publicly.")
         st.stop()
     except Exception as e:
-        # Propagate so the caller can trigger upload fallback
         raise e
 
 
@@ -142,7 +142,7 @@ if df is None:
 if "yyyymmdd" in df.columns and not pd.api.types.is_datetime64_any_dtype(df["yyyymmdd"]):
     df["yyyymmdd"] = pd.to_datetime(df["yyyymmdd"], errors="coerce")
 
-# Coerce org id to int (where possible)
+# Coerce org id to nullable int
 if "organization_id" in df.columns:
     df["organization_id"] = pd.to_numeric(df["organization_id"], errors="coerce").astype("Int64")
 
@@ -150,8 +150,8 @@ if "organization_id" in df.columns:
 if "organization_name" in df.columns:
     df["organization_name"] = df["organization_name"].fillna("")
 
-# Helper: check required columns for a given plot
-def assert_columns_present(data: pd.DataFrame, cols: list):
+
+def assert_columns_present(data: pd.DataFrame, cols: list) -> None:
     missing = [c for c in cols if c not in data.columns]
     if missing:
         raise KeyError(f"Missing required columns: {missing}")
@@ -165,7 +165,7 @@ def plot_monthly_exit_distribution_interactive(
     org_id: int,
     type: str = "_abs",               # "_abs" (All animals) or "_cond" (Animals with an outcome)
     suffix: str = "_zeros_replaced",  # "" (Raw) or "_zeros_replaced"
-    title: str | None = None,
+    title: Optional[str] = None,
     smooth: bool = False,
     window: int = 3,
 ) -> go.Figure:
@@ -244,7 +244,7 @@ def plot_inventory_interactive(
     data: pd.DataFrame,
     org_id: int,
     suffix: str = "",               # "" (Raw) or "_zeros_replaced"
-    title: str | None = None,
+    title: Optional[str] = None,
     smooth: bool = False,
     window: int = 3,
 ) -> go.Figure:
