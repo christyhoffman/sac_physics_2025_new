@@ -1,6 +1,3 @@
-Below is the **complete, working `app.py`**. Copy **only** the code (don’t include the triple backticks).
-
-```python
 import io
 import urllib.error
 import urllib.request
@@ -401,4 +398,3 @@ if org_id is not None and st.button("Show Plot(s)"):
         st.error(str(e))
     except Exception as e:
         st.error(f"Unexpected error: {e}")
-```
